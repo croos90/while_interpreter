@@ -1,1 +1,1 @@
-# while_interpreter
+# Interpreter for the While / IMP / SIMP language
