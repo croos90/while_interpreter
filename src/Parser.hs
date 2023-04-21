@@ -14,6 +14,7 @@ identifier  = P.identifier whileLexer
 integer     = P.integer whileLexer
 parens      = P.parens whileLexer
 reservedOp  = P.reservedOp whileLexer
+reserved    = P.reserved whileLexer
 semi        = P.semi whileLexer
 symbol      = P.symbol whileLexer
 semiSep     = P.semiSep whileLexer
@@ -27,14 +28,15 @@ whileStyle = P.LanguageDef
     , P.commentEnd     = ""
     , P.commentLine    = "#"
     , P.nestedComments = True
-    , P.identStart     = letter <|> char '_'
-    , P.identLetter    = alphaNum <|> oneOf "_'"
+    , P.identStart     = letter
+    , P.identLetter    = alphaNum
     , P.opStart        = P.opLetter whileStyle
-    , P.opLetter       = oneOf ":!#$%&*+./<=>?@\\^|-~"
-    , P.reservedOpNames= ["&", ":=", "-", "+", "*", "/", "!"]
+    , P.opLetter       = oneOf ":!#$%&*+./<=>?@^|-~"
+    , P.reservedOpNames= ["&", ":=", "-", "+", "*", "/", "!", "skip"]
     , P.reservedNames  = ["try", "catch", "while", "do", "if", "then", "else"]
     , P.caseSensitive  = True
     }
+
 
 
 -- | Parse Statement
@@ -52,27 +54,27 @@ statement
 stmAssignment :: Parser Stm
 stmAssignment = do
     var <- identifier
-    symbol ":="
+    reservedOp ":="
     Ass var <$> arithmeticExpr
 
 
 -- | Parse Skip
 stmSkip :: Parser Stm
-stmSkip = symbol "skip" >> return Skip
+stmSkip = reservedOp "skip" >> return Skip
 
 
 -- | Parse if then else
 stmIf :: Parser Stm
 stmIf = do
-    reservedOp "if"
+    reserved "if"
     spaces
     cond <- booleanExpr
     spaces
-    reservedOp "then"
+    reserved "then"
     spaces
     s1 <- foldr1 Comp <$> sepBy1 statement semi
     spaces
-    reservedOp "else"
+    reserved "else"
     spaces
     s2 <- foldr1 Comp <$> sepBy1 statement semi
     return $ If cond s1 s2
@@ -81,11 +83,11 @@ stmIf = do
 -- | Parse while
 stmWhile :: Parser Stm
 stmWhile = do
-    reservedOp "while"
+    reserved "while"
     spaces
     check <- booleanExpr
     spaces
-    reservedOp "do"
+    reserved "do"
     spaces
     prog <- foldr1 Comp <$> sepBy1 statement semi
     return $ While check prog
@@ -94,11 +96,11 @@ stmWhile = do
 -- | Parse try catch
 stmTryCatch :: Parser Stm
 stmTryCatch = do
-    reservedOp "try"
+    reserved "try"
     spaces
     s1 <- foldr1 Comp <$> sepBy1 statement semi
     spaces
-    reservedOp "catch"
+    reserved "catch"
     spaces
     s2 <- foldr1 Comp <$> sepBy1 statement semi
     return $ Try s1 s2
@@ -128,13 +130,11 @@ binaryOp name fun = Infix body
 prefixOp name fun = Prefix $ reservedOp name >> return fun
 
 
--- | Since Bexp members operate over different domains,
---   there is some boxing/unboxing being done with WrapAtom.
 data WrapAtom = BexpW Bexp | AexpW Aexp
 
 booleanAtom
-    =   (try (symbol "true") >> truthVal (Bconst (Bb True)))
-    <|> (try (symbol "false") >> truthVal (Bconst (Bb False)))
+    =   (try (reserved "true") >> truthVal (Bconst (Bb True)))
+    <|> (try (reserved "false") >> truthVal (Bconst (Bb False)))
     <|> try (AexpW <$> arithmeticExpr)
     <|> parens booleanExpr'
     where truthVal = return . BexpW
