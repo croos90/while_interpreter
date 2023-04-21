@@ -2,11 +2,20 @@ module Main where
 
 import System.Environment
 import System.IO
+import Control.Monad (when)
 
 import Parser
 import Types
 import AM
 import Exec
+
+
+------------------------------------------------------------
+-- | TODO define equality on states
+--        fix parser, s.t. it can parse full while programs
+--        (different starting states?)
+--        fix debugger taking a step at start
+------------------------------------------------------------
 
 
 main :: IO ()
@@ -31,7 +40,7 @@ main = do
     choice <- getChar
     putStrLn ""
     putStrLn ""
-    if choice == 'r' then
+    if choice == 'r' then do
         runProgram (code, [], ([],T))
     else if choice == 'd' then
         debugger (code, [], ([],T))
@@ -61,6 +70,7 @@ runProgram config@(code, stack, state) = loop config
     loop cfg@(code, stack, state) = do
         print state
         let newConfig@(newCode, newStack, newState) = execute cfg
+        -- when (state /= newState) $ print state 
         if null newCode && null newStack
             then do
                 print newState

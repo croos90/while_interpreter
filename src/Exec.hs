@@ -19,7 +19,6 @@ execute (PUSH v : c, s, e)                          = case v of
                                                         (B b) -> (c, B b : s, e)
 execute (FETCH x : c, s, e)                         = case lookup x (fst e) of
                                                         Just (N n) -> (c, N n : s, e)
-                                                        Just (B b) -> (c, B b : s, e)
                                                         _ -> error "Variable not found"
 execute (STORE x : c, N n : s, e)                   = (c, s, ((x, N n) : filter (\(y, _) -> x /= y) (fst e), snd e))
 execute (ADD : c, N (An m) : N (An n) : s, e)       = (c, N (An (m + n)) : s, e)
