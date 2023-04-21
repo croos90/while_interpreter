@@ -10,7 +10,7 @@ import qualified Text.Parsec.Token as P
 
 
 -- -- | Language definition
-identifier  = P.identifier whileLexer <?> "identifier"
+identifier  = P.identifier whileLexer
 integer     = P.integer whileLexer
 parens      = P.parens whileLexer
 reservedOp  = P.reservedOp whileLexer
@@ -31,8 +31,8 @@ whileStyle = P.LanguageDef
     , P.identLetter    = alphaNum <|> oneOf "_'"
     , P.opStart        = P.opLetter whileStyle
     , P.opLetter       = oneOf ":!#$%&*+./<=>?@\\^|-~"
-    , P.reservedOpNames= ["and"]
-    , P.reservedNames  = ["true", "false", "try", "catch", "while", "do", "if", "then", "else"]
+    , P.reservedOpNames= ["&", ":=", "-", "+", "*", "/", "!"]
+    , P.reservedNames  = ["try", "catch", "while", "do", "if", "then", "else"]
     , P.caseSensitive  = True
     }
 
@@ -46,7 +46,6 @@ statement
     <|> try stmWhile
     <|> try stmAssignment
     <|> try stmTryCatch
-    <|> try consecutive
 
 
 -- | Parse Assignment
@@ -65,15 +64,15 @@ stmSkip = symbol "skip" >> return Skip
 -- | Parse if then else
 stmIf :: Parser Stm
 stmIf = do
-    symbol "if"
+    reservedOp "if"
     spaces
     cond <- booleanExpr
     spaces
-    symbol "then"
+    reservedOp "then"
     spaces
     s1 <- foldr1 Comp <$> sepBy1 statement semi
     spaces
-    symbol "else"
+    reservedOp "else"
     spaces
     s2 <- foldr1 Comp <$> sepBy1 statement semi
     return $ If cond s1 s2
@@ -82,11 +81,11 @@ stmIf = do
 -- | Parse while
 stmWhile :: Parser Stm
 stmWhile = do
-    symbol "while"
+    reservedOp "while"
     spaces
     check <- booleanExpr
     spaces
-    symbol "do"
+    reservedOp "do"
     spaces
     prog <- foldr1 Comp <$> sepBy1 statement semi
     return $ While check prog
@@ -95,11 +94,11 @@ stmWhile = do
 -- | Parse try catch
 stmTryCatch :: Parser Stm
 stmTryCatch = do
-    symbol "try"
+    reservedOp "try"
     spaces
     s1 <- foldr1 Comp <$> sepBy1 statement semi
     spaces
-    symbol "catch"
+    reservedOp "catch"
     spaces
     s2 <- foldr1 Comp <$> sepBy1 statement semi
     return $ Try s1 s2
@@ -107,15 +106,15 @@ stmTryCatch = do
 
 -- | Arithmetic expressions
 arithmeticAtom
-    =   Aconst <$> integer
+    =   Aconst . An <$> integer
     <|> Avar <$> identifier
     <|> parens arithmeticExpr
 
 arithmeticOperation =
-    [ [binaryOp "*" Amul AssocLeft]
+    [ [binaryOp "*" Amul AssocLeft
+    ,  binaryOp "/" Adiv AssocLeft]
     , [binaryOp "+" Aadd AssocLeft
-    ,  binaryOp "-" Asub AssocLeft 
-    ,  binaryOp "/" Adiv AssocLeft ]
+    ,  binaryOp "-" Asub AssocLeft]
     ]
 
 arithmeticExpr = buildExpressionParser arithmeticOperation arithmeticAtom
@@ -128,25 +127,14 @@ binaryOp name fun = Infix body
 
 prefixOp name fun = Prefix $ reservedOp name >> return fun
 
--- | Parse a single statement followed optionally by another one.
--- | Needs to be done due to the while-statement.
--- consecutive = do
---   s1 <- statement
---   (s1:) <$> option [] (fmap return statement)
-
-consecutive :: Parser Stm
-consecutive = chainr1 statement (symbol ";" >> return Comp)
-
-  
-
 
 -- | Since Bexp members operate over different domains,
 --   there is some boxing/unboxing being done with WrapAtom.
 data WrapAtom = BexpW Bexp | AexpW Aexp
 
 booleanAtom
-    =   (try (symbol "true") >> truthVal Btrue)
-    <|> (try (symbol "false") >> truthVal Bfalse)
+    =   (try (symbol "true") >> truthVal (Bconst (Bb True)))
+    <|> (try (symbol "false") >> truthVal (Bconst (Bb False)))
     <|> try (AexpW <$> arithmeticExpr)
     <|> parens booleanExpr'
     where truthVal = return . BexpW
@@ -155,11 +143,11 @@ booleanOperation =
     [ [prefixOp "!" bneg]
     , [binaryOp "=" beq AssocLeft   
     , binaryOp "<=" bleq AssocLeft   
-    , binaryOp "and" band AssocLeft ]
+    , binaryOp "&" band AssocLeft ]
     ]
     where
         bneg (BexpW b) = BexpW $ Bneg b
-        bneg _ = error "Invalid opeand for negation"
+        bneg _ = error "Invalid operand for negation"
         beq (AexpW a1) (AexpW a2) = BexpW $ Beq a1 a2
         beq _ _ = error "Invalid operands for equality check"
         bleq (AexpW a1) (AexpW a2) = BexpW $ Bleq a1 a2

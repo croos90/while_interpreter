@@ -1,38 +1,68 @@
 module Main where 
 
-import Parser 
+import System.Environment
+import System.IO
+
+import Parser
 import Types
 import AM
-
-import System.IO
-import Exec (executeAMCode)
-
-
-loadFile :: FilePath -> IO Stm
-loadFile path = do
-    input <- readFile path
-    return $ parseString input
-
-loadStdin :: IO Stm
-loadStdin = do parseString <$> getContents
+import Exec
 
 
 main :: IO ()
 main = do
-    let input = "x:=7;try x:=x-7;x:=7/x;x:=x+7 catch x:=x-7"
+    args <- getArgs
+    let inputFile = head args
+    contents <- readFile inputFile
+    let input = head (lines contents)
+--    let input = "if !(1=2) then skip else x:=2"
     putStrLn "Input:"
     print input
-    runProgram input
-
-
-runProgram :: String -> IO ()
-runProgram programString = do
-    let ast = parseString programString
+    putStrLn ""
+    let ast = parseString input
     putStrLn "AST:"
     print ast
-    putStrLn "AM Code:"
+    putStrLn ""
     let code = astToCode ast
+    putStrLn "AM Code:"
     print code
-    putStrLn "Final Config:"
-    let finalConfig = executeAMCode code []
-    print finalConfig
+    putStrLn ""
+    putStrLn "Enter 'r' to run the program or 'd' to enter the debugger:"
+    choice <- getChar
+    putStrLn ""
+    putStrLn ""
+    if choice == 'r' then
+        runProgram (code, [], ([],T))
+    else if choice == 'd' then
+        debugger (code, [], ([],T))
+    else
+        putStrLn "Invalid choice."
+
+
+debugger :: Config -> IO ()
+debugger config@(code, stack, state) = do
+    putStrLn $ "Code: " ++ show code
+    putStrLn $ "Stack: " ++ show stack
+    putStrLn $ "State: " ++ show state
+    getLine
+    let newConfig@(newCode, newStack, newState) = execute config
+    if null newCode && null newStack
+        then do
+            putStrLn "Execution finished."
+            putStrLn $ "Code: " ++ show newCode
+            putStrLn $ "Stack: " ++ show newStack
+            putStrLn $ "Final state: " ++ show newState
+        else debugger newConfig
+
+
+runProgram :: Config -> IO ()
+runProgram config@(code, stack, state) = loop config
+  where
+    loop cfg@(code, stack, state) = do
+        print state
+        let newConfig@(newCode, newStack, newState) = execute cfg
+        if null newCode && null newStack
+            then do
+                print newState
+                putStrLn "Execution finished."                
+            else loop newConfig
