@@ -11,8 +11,8 @@ data Instructions
     | FETCH String
     | STORE String
     | ADD | SUB | MUL | DIV
-    | TRUE | FALSE | EQUAL | LE | AND | NEG
-    | NOOP
+    | EQUAL | LE | AND | NEG
+    | NOOP | CATCH
     | BRANCH (Code, Code)
     | LOOP (Code, Code)
     | TRY (Code, Code)

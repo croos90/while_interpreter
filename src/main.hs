@@ -10,21 +10,12 @@ import AM
 import Exec
 
 
-------------------------------------------------------------
--- | TODO define equality on states
---        fix parser, s.t. it can parse full while programs
---        (different starting states?)
---        fix debugger taking a step at start
-------------------------------------------------------------
-
-
 main :: IO ()
 main = do
     args <- getArgs
     let inputFile = head args
     contents <- readFile inputFile
     let input = head (lines contents)
---    let input = "if !(1=2) then skip else x:=2"
     putStrLn "Input:"
     print input
     putStrLn ""
